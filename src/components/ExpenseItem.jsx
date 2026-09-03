@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 function ExpenseItem({ expense }) {
   const { title, amount, category, date, note } = expense
 
@@ -15,4 +17,7 @@ function ExpenseItem({ expense }) {
   )
 }
 
-export default ExpenseItem
+// Real use case: when filterBy/sortBy change, the array is rebuilt, but most
+// individual expense OBJECTS inside it are the same reference as before —
+// so memo lets React skip re-rendering rows that didn't actually change.
+export default memo(ExpenseItem)

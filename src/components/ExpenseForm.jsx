@@ -1,4 +1,4 @@
-import { useState, useRef, useId } from 'react'
+import { useState, useRef, useId, memo } from 'react'
 
 const CATEGORIES = ['Food', 'Transport', 'Bills', 'Shopping', 'Other']
 
@@ -133,4 +133,7 @@ function ExpenseForm({ onAddExpense }) {
   )
 }
 
-export default ExpenseForm
+// Pairs with useCallback in App: without a stable onAddExpense reference,
+// memo here would do nothing (a "new" function prop every render still counts
+// as a changed prop).
+export default memo(ExpenseForm)
