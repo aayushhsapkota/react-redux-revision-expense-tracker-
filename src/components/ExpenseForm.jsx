@@ -1,4 +1,7 @@
-import { useState, useRef, useId, memo } from 'react'
+import { useState, useRef, memo } from 'react'
+import Input from './ui/Input'
+import Button from './ui/Button'
+import Card from './ui/Card'
 
 const CATEGORIES = ['Food', 'Transport', 'Bills', 'Shopping', 'Other']
 
@@ -12,10 +15,7 @@ const emptyForm = {
 
 function ExpenseForm({ onAddExpense }) {
   const [form, setForm] = useState(emptyForm)
-  const titleInputRef = useRef(null) // will point at the real <input> DOM node
-
-  // Unique per component instance — used to safely link each <label> to its <input>.
-  const id = useId()
+  const titleInputRef = useRef(null) // forwarded through <Input> down to the real <input>
 
   // One handler for every field: the `name` attribute tells us which key to update.
   function handleChange(event) {
@@ -40,96 +40,72 @@ function ExpenseForm({ onAddExpense }) {
   }
 
   return (
+    <Card>
     <form
       onSubmit={handleSubmit}
-      className="grid gap-3 sm:grid-cols-2 bg-white p-4 rounded-lg shadow"
+      className="grid gap-3 sm:grid-cols-2"
     >
-      <div>
-        <label htmlFor={`${id}-title`} className="block text-sm text-slate-600 mb-1">
-          Title
-        </label>
-        <input
-          ref={titleInputRef}
-          id={`${id}-title`}
-          name="title"
-          value={form.title}
-          onChange={handleChange}
-          placeholder="e.g. Groceries"
-          className="border rounded px-3 py-2 w-full"
-        />
-      </div>
+      <Input
+                ref={titleInputRef}
+                label="Title"
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                placeholder="e.g. Groceries"
+              />
+              <Input
+                label="Amount"
+                name="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.amount}
+                onChange={handleChange}
+                placeholder="0.00"
+              />
+      
 
-      <div>
-        <label htmlFor={`${id}-amount`} className="block text-sm text-slate-600 mb-1">
-          Amount
-        </label>
-        <input
-          id={`${id}-amount`}
-          name="amount"
-          type="number"
-          step="0.01"
-          min="0"
-          value={form.amount}
-          onChange={handleChange}
-          placeholder="0.00"
-          className="border rounded px-3 py-2 w-full"
-        />
-      </div>
+       {/* Not <Input> — it's a <select>, different element; only Button/Card/Input were asked for */}
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Category</label>
+          <select
+            name="category"
+            value={form.category}
+            onChange={handleChange}
+            className="border border-slate-300 rounded px-3 py-2 w-full bg-white text-slate-800"
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <div>
-        <label htmlFor={`${id}-category`} className="block text-sm text-slate-600 mb-1">
-          Category
-        </label>
-        <select
-          id={`${id}-category`}
-          name="category"
-          value={form.category}
-          onChange={handleChange}
-          className="border rounded px-3 py-2 w-full"
-        >
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-      </div>
+       <Input
+                label="Date"
+                name="date"
+                type="date"
+                value={form.date}
+                onChange={handleChange}
+              />
 
-      <div>
-        <label htmlFor={`${id}-date`} className="block text-sm text-slate-600 mb-1">
-          Date
-        </label>
-        <input
-          id={`${id}-date`}
-          name="date"
-          type="date"
-          value={form.date}
-          onChange={handleChange}
-          className="border rounded px-3 py-2 w-full"
-        />
-      </div>
+     <div className="sm:col-span-2">
+              <Input
+                label="Note (optional)"
+                name="note"
+                value={form.note}
+                onChange={handleChange}
+                placeholder="Optional details"
+              />
+            </div>
 
-      <div className="sm:col-span-2">
-        <label htmlFor={`${id}-note`} className="block text-sm text-slate-600 mb-1">
-          Note (optional)
-        </label>
-        <input
-          id={`${id}-note`}
-          name="note"
-          value={form.note}
-          onChange={handleChange}
-          placeholder="Optional details"
-          className="border rounded px-3 py-2 w-full"
-        />
-      </div>
-
-      <button
-        type="submit"
-        className="sm:col-span-2 bg-slate-800 text-white rounded px-3 py-2 hover:bg-slate-700"
-      >
-        Add Expense
-      </button>
-    </form>
+   
+           <Button type="submit" className="sm:col-span-2">
+             Add Expense
+           </Button>
+         </form>
+       </Card>
   )
 }
 

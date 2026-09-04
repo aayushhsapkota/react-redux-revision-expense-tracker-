@@ -3,6 +3,7 @@ import useLocalStorage from './hooks/useLocalStorage'
 import ExpenseForm from './components/ExpenseForm'
 import ExpenseList from './components/ExpenseList'
 import ExpenseFilters from './components/ExpenseFilters'
+import Card from './components/ui/Card'
 
 function App() {
   // This is the "lifted" state — the single source of truth for the whole app.
@@ -88,7 +89,7 @@ function App() {
                   onSortChange={setSortBy}
                 />
 
-        <div className="bg-white p-4 rounded-lg shadow flex justify-between items-center">
+        <Card className="flex justify-between items-center">
           <div>
             <span className="text-slate-600">Grand Total</span>
             {previousTotal !== grandTotal && ( //&& is being used for conditional rendering in React.
@@ -98,10 +99,10 @@ function App() {
           <span className="text-xl font-bold text-slate-800">
             ${grandTotal.toFixed(2)}
           </span>
-        </div>
-
-          {expenses.length > 0 && (
-          <div className="bg-white p-4 rounded-lg shadow">
+        </Card>
+        
+  {expenses.length > 0 && (
+          <Card>
             <p className="text-slate-600 mb-2 text-sm">By category</p>
             <ul className="space-y-1 text-sm">
               {Object.entries(categoryTotals).map(([category, total]) => (
@@ -113,7 +114,7 @@ function App() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         )}
 
         <ExpenseList expenses={visibleExpenses} />
