@@ -1,4 +1,4 @@
-import { useState, useRef, memo, useActionState } from 'react'
+import { useRef, memo, useActionState } from 'react'
 import Input from './ui/Input'
 import Button from './ui/Button'
 import Card from './ui/Card'
@@ -38,7 +38,7 @@ function ExpenseForm({ onAddExpense }) {
   // React calls this on submit with (previousState, formData). We don't need
     // previousState here, but the signature is fixed by useActionState.
     const [state, formAction, isPending] = useActionState(
-      (previousState, formData) => {
+      async (previousState, formData) => {
         const title = formData.get('title')?.trim()
         const amount = parseFloat(formData.get('amount'))
         const date = formData.get('date')
@@ -56,8 +56,16 @@ function ExpenseForm({ onAddExpense }) {
         note: formData.get('note') || '',
       }
 
-      onAddExpense(newExpense)
-  
+    try {
+
+        await onAddExpense(newExpense) // may reject — see fakeExpenseApi.js
+
+      } catch (err) {
+
+        return { error: 'Could not save the expense — please try again.' }
+
+      }
+
         formRef.current.reset() // uncontrolled fields: reset via the real DOM form API
         titleInputRef.current.focus()
   

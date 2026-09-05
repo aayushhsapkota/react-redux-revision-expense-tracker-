@@ -1,12 +1,23 @@
 import { memo } from 'react'
 
 function ExpenseItem({ expense }) {
-  const { title, amount, category, date, note } = expense
+  const { title, amount, category, date, note, pending } = expense
 
   return (
-    <li className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 py-3 last:border-none">
-      <div>
-        <p className="font-medium text-slate-800 dark:text-slate-100">{title}</p>
+    <li
+      className={`flex items-center justify-between border-b border-slate-200 dark:border-slate-700 py-3 last:border-none ${
+        pending ? 'opacity-50' : ''
+      }`}
+    >
+      <div> 
+        <p className="font-medium text-slate-800 dark:text-slate-100">
+          {title}
+          {pending && (
+            <span className="ml-2 text-xs font-normal text-slate-400 dark:text-slate-500">
+              Saving…
+            </span>
+          )}
+        </p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {category} · {date}
           {note && ` · ${note}`}

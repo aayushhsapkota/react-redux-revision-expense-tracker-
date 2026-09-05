@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { useRef, useEffect, useState, useMemo, useCallback, useOptimistic } from 'react'
 import useLocalStorage from './hooks/useLocalStorage'
+import { fakeSaveExpense } from './api/fakeExpenseApi'
 import ExpenseForm from './components/ExpenseForm'
 import ExpenseList from './components/ExpenseList'
 import ExpenseFilters from './components/ExpenseFilters'
@@ -25,50 +26,70 @@ function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
   }
 
+   // useOptimistic: shows a "hoped-for" expense immediately, tagged `pending: true`.
+    // Once the real save (below) either commits `expenses` or fails, React
+    // reconciles optimisticExpenses back to match reality automatically.
+    const [optimisticExpenses, addOptimisticExpense] = useOptimistic(
+      //the real current state
+      expenses,
+      //update function
+      (current, newExpense) => [{ ...newExpense, pending: true }, ...current]
+    )
+
   // useCallback: keeps this function's "identity" stable across renders, so
   // the memo() on ExpenseForm actually works — otherwise every App render
   // (e.g. from changing the filter) would hand ExpenseForm a "new" function
   // prop and force it to re-render anyway.
-  const handleAddExpense = useCallback((newExpense) => {
-    setExpenses((prev) => [newExpense, ...prev]) //newest first
-  }, [setExpenses])
 
-  // useMemo #1 — recompute only when `expenses` itself changes.
-  const grandTotal = useMemo(
-    () => expenses.reduce((sum, e) => sum + e.amount, 0),
-    [expenses]
-  )
+   // Now async: addOptimisticExpense runs FIRST and SYNCHRONOUSLY (required —
+    // it must happen inside the same transition as the form Action, before any
+    // await), then we await the fake network call, then commit for real.
+    const handleAddExpense = useCallback(async (newExpense) => {
+      addOptimisticExpense(newExpense)
+      await fakeSaveExpense(newExpense) // throws ~15% of the time — see fakeExpenseApi.js
+      setExpenses((prev) => [newExpense, ...prev]) //newest first
+    }, [setExpenses, addOptimisticExpense])
+  
 
-  // useMemo #2 — per-category breakdown, same reasoning.
+ // useMemo #1 — recompute only when `optimisticExpenses` changes. Using the
+   // optimistic array (not raw `expenses`) means a pending add is reflected
+   // in the total immediately, not just once the fake save resolves.
+   const grandTotal = useMemo(
+     () => optimisticExpenses.reduce((sum, e) => sum + e.amount, 0),
+     [optimisticExpenses]
+   )
+
+ // useMemo #2 — per-category breakdown, same reasoning.
   const categoryTotals = useMemo(() => {
-    return expenses.reduce((totals, e) => {
+    return optimisticExpenses.reduce((totals, e) => {
       totals[e.category] = (totals[e.category] || 0) + e.amount
       return totals
     }, {})
-  }, [expenses])
+  }, [optimisticExpenses])
 
-  // useMemo #3 — the filtered + sorted list the user actually sees.
-  // Note: filter/sort here build a NEW array, but reuse the SAME expense
-  // object references — which is exactly what lets ExpenseItem's memo() pay off.
-  const visibleExpenses = useMemo(() => {
-    const filtered = filterBy
-          ? expenses.filter((e) => e.category === filterBy)
-          : expenses
-    
-        const [field, direction] = sortBy.split('-')
-
-         // `a` and `b` are the two expenses being compared.
-        // `a - b` gives a negative number when `a` is smaller, so `a` comes first (ascending).
-        // `b - a` does the opposite, putting the larger value first (descending).
-        return [...filtered].sort((a, b) => {
-          if (field === 'date') {
-            return direction === 'asc'
-              ? new Date(a.date) - new Date(b.date)
-              : new Date(b.date) - new Date(a.date)
-          }
-      return direction === 'asc' ? a.amount - b.amount : b.amount - a.amount
-    })
-  }, [expenses, filterBy, sortBy])
+ // useMemo #3 — the filtered + sorted list the user actually sees.
+   // Note: filter/sort here build a NEW array, but reuse the SAME expense
+   // object references — which is exactly what lets ExpenseItem's memo() pay off.
+   const visibleExpenses = useMemo(() => {
+     const filtered = filterBy
+           ? optimisticExpenses.filter((e) => e.category === filterBy)
+           : optimisticExpenses
+     
+         const [field, direction] = sortBy.split('-')
+ 
+          // `a` and `b` are the two expenses being compared.
+         // `a - b` gives a negative number when `a` is smaller, so `a` comes first (ascending).
+         // `b - a` does the opposite, putting the larger value first (descending).
+         return [...filtered].sort((a, b) => {
+           if (field === 'date') {
+             return direction === 'asc'
+               ? new Date(a.date) - new Date(b.date)
+               : new Date(b.date) - new Date(a.date)
+           }
+       return direction === 'asc' ? a.amount - b.amount : b.amount - a.amount
+     })
+   }, [optimisticExpenses, filterBy, sortBy])
+     
     
 
   // useRef use #2: remember the PREVIOUS grand total across renders,
@@ -120,7 +141,7 @@ function App() {
           </span>
         </Card>
         
-  {expenses.length > 0 && (
+  {optimisticExpenses.length > 0 && (
           <Card>
             <p className="text-slate-600 dark:text-slate-300 mb-2 text-sm">By category</p>
             <ul className="space-y-1 text-sm">
