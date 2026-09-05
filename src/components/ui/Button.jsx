@@ -1,6 +1,8 @@
 const VARIANTS = {
-  primary: 'bg-slate-800 text-white hover:bg-slate-700',
-  ghost: 'bg-transparent text-slate-600 hover:bg-slate-200',
+  primary:
+    'bg-slate-800 text-white hover:bg-slate-700 dark:bg-slate-600 dark:hover:bg-slate-500',
+  ghost:
+    'bg-transparent text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700',
 }
 
 function Button({ variant = 'primary', className = '', children, ...rest }) {

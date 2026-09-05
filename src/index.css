@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* Redefine `dark:` to react to a `.dark` class on <html> (or any ancestor),
+   instead of only following the OS's prefers-color-scheme setting. This is
+   what lets a user-controlled toggle work in Tailwind v4's CSS-first setup. */
+@custom-variant dark (&:where(.dark, .dark *)); 
