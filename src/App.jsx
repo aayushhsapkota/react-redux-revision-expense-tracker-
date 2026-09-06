@@ -21,7 +21,6 @@ function App() {
   const [expenses, setExpenses] = useLocalStorage("expenses", []);
   const [filterBy, setFilterBy] = useState(""); // '' means "all categories"
   const [sortBy, setSortBy] = useState("date-desc");
-  const [theme, setTheme] = useLocalStorage("theme", "light"); // reusing our Phase 2 hook
 
   // searchInput: updates immediately, always — this is what the text box shows,
   // so it must never lag behind typing.
@@ -38,16 +37,7 @@ function App() {
     });
   }
 
-  //Look at the <html> element. If the current theme is dark,
-  // add the dark class. Otherwise, remove the dark class.
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
-
-  function toggleTheme() {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  }
-
+ 
   // useOptimistic: shows a "hoped-for" expense immediately, tagged `pending: true`.
   // Once the real save (below) either commits `expenses` or fails, React
   // reconciles optimisticExpenses back to match reality automatically.
@@ -147,7 +137,7 @@ function App() {
           <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
             Expense Tracker
           </h1>
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <ThemeToggle />
         </div>
 
         <ExpenseForm onAddExpense={handleAddExpense} />
