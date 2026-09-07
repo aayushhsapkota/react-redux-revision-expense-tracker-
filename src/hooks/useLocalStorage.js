@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react'
 function useLocalStorage(key, initialValue) {
   // Lazy initializer: this function only runs ONCE (on first render),
   // not on every re-render — important since reading localStorage has a cost.
+
+  //When useState receives a function, React treats that function as a lazy initializer and
+  // calls it to get the initial state. (This is how react works with useState, if you call only useState(initialValue),
+  //  it will run on every render, which is not what we want here.)
   const [value, setValue] = useState(() => {
     try {
       const stored = window.localStorage.getItem(key)

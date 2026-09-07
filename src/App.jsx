@@ -3,22 +3,23 @@ import {
   useEffect,
   useState,
   useMemo,
-  useCallback,
-  useOptimistic,
   useTransition,
 } from "react";
-import useLocalStorage from "./hooks/useLocalStorage";
-import { fakeSaveExpense } from "./api/fakeExpenseApi";
 import ExpenseForm from "./components/ExpenseForm";
 import ExpenseList from "./components/ExpenseList";
 import ExpenseFilters from "./components/ExpenseFilters";
 import ThemeToggle from "./components/ThemeToggle";
 import Card from "./components/ui/Card";
+import Button from "./components/ui/Button";
+import { useExpenses } from "./context/ExpenseContext";
 
 function App() {
+  // Expense state (add/persist/optimistic) now lives in ExpenseContext —
+  // App just reads what it needs and calls the actions it exposes.
+  const { expenses, addExpense, clearExpenses } = useExpenses();
+
   // This is the "lifted" state — the single source of truth for the whole app.
   // Swapped useState for our custom hook — expenses now persist across reloads.
-  const [expenses, setExpenses] = useLocalStorage("expenses", []);
   const [filterBy, setFilterBy] = useState(""); // '' means "all categories"
   const [sortBy, setSortBy] = useState("date-desc");
 
@@ -37,57 +38,30 @@ function App() {
     });
   }
 
- 
-  // useOptimistic: shows a "hoped-for" expense immediately, tagged `pending: true`.
-  // Once the real save (below) either commits `expenses` or fails, React
-  // reconciles optimisticExpenses back to match reality automatically.
-  const [optimisticExpenses, addOptimisticExpense] = useOptimistic(
-    //the real current state
-    expenses,
-    //update function
-    (current, newExpense) => [{ ...newExpense, pending: true }, ...current],
-  );
-
-  // useCallback: keeps this function's "identity" stable across renders, so
-  // the memo() on ExpenseForm actually works — otherwise every App render
-  // (e.g. from changing the filter) would hand ExpenseForm a "new" function
-  // prop and force it to re-render anyway.
-
-  // Now async: addOptimisticExpense runs FIRST and SYNCHRONOUSLY (required —
-  // it must happen inside the same transition as the form Action, before any
-  // await), then we await the fake network call, then commit for real.
-  const handleAddExpense = useCallback(
-    async (newExpense) => {
-      addOptimisticExpense(newExpense);
-      await fakeSaveExpense(newExpense); // throws ~15% of the time — see fakeExpenseApi.js
-      setExpenses((prev) => [newExpense, ...prev]); //newest first
-    },
-    [setExpenses, addOptimisticExpense],
-  );
 
   // useMemo #1 — recompute only when `optimisticExpenses` changes. Using the
   // optimistic array (not raw `expenses`) means a pending add is reflected
   // in the total immediately, not just once the fake save resolves.
   const grandTotal = useMemo(
-    () => optimisticExpenses.reduce((sum, e) => sum + e.amount, 0),
-    [optimisticExpenses],
+    () => expenses.reduce((sum, e) => sum + e.amount, 0),
+    [expenses],
   );
 
   // useMemo #2 — per-category breakdown, same reasoning.
   const categoryTotals = useMemo(() => {
-    return optimisticExpenses.reduce((totals, e) => {
+    return expenses.reduce((totals, e) => {
       totals[e.category] = (totals[e.category] || 0) + e.amount;
       return totals;
     }, {});
-  }, [optimisticExpenses]);
+  }, [expenses]);
 
   // useMemo #3 — the filtered + sorted list the user actually sees.
   // Note: filter/sort here build a NEW array, but reuse the SAME expense
   // object references — which is exactly what lets ExpenseItem's memo() pay off.
   const visibleExpenses = useMemo(() => {
     let filtered = filterBy
-      ? optimisticExpenses.filter((e) => e.category === filterBy)
-      : optimisticExpenses;
+      ? expenses.filter((e) => e.category === filterBy)
+      : expenses;
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -111,7 +85,7 @@ function App() {
       }
       return direction === "asc" ? a.amount - b.amount : b.amount - a.amount;
     });
-  }, [optimisticExpenses, filterBy, sortBy, searchQuery]);
+  }, [expenses, filterBy, sortBy, searchQuery]);
 
   // useRef use #2: remember the PREVIOUS grand total across renders,
   // without causing an extra re-render just to store it.
@@ -140,7 +114,7 @@ function App() {
           <ThemeToggle />
         </div>
 
-        <ExpenseForm onAddExpense={handleAddExpense} />
+        <ExpenseForm onAddExpense={addExpense} />
 
         <ExpenseFilters
           filterBy={filterBy}
@@ -168,11 +142,20 @@ function App() {
           </span>
         </Card>
 
-        {optimisticExpenses.length > 0 && (
+        {expenses.length > 0 && (
           <Card>
-            <p className="text-slate-600 dark:text-slate-300 mb-2 text-sm">
-              By category
-            </p>
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-slate-600 dark:text-slate-300 text-sm">
+                By category
+              </p>
+              <Button
+                variant="ghost"
+                className="text-xs px-2 py-1"
+                onClick={clearExpenses}
+              >
+                Clear all
+              </Button>
+            </div>
             <ul className="space-y-1 text-sm">
               {Object.entries(categoryTotals).map(([category, total]) => (
                 <li key={category} className="flex justify-between">

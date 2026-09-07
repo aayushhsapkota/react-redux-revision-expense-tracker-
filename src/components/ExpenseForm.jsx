@@ -2,8 +2,7 @@ import { useRef, memo, useActionState } from 'react'
 import Input from './ui/Input'
 import Button from './ui/Button'
 import Card from './ui/Card'
-
-const CATEGORIES = ['Food', 'Transport', 'Bills', 'Shopping', 'Other']
+import { CATEGORIES } from '../constants'
 
 
 function ExpenseForm({ onAddExpense }) {

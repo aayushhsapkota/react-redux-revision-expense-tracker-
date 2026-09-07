@@ -1,7 +1,9 @@
 import Card from './ui/Card'
 import Input from './ui/Input'
 
-const CATEGORY_OPTIONS = ['All', 'Food', 'Transport', 'Bills', 'Shopping', 'Other']
+import { CATEGORIES } from '../constants'
+
+const CATEGORY_OPTIONS = ['All', ...CATEGORIES]
 
 function ExpenseFilters({
   filterBy,
