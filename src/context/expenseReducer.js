@@ -4,6 +4,12 @@
 export function expenseReducer(state, action) {
   switch (action.type) {
     case 'ADD_EXPENSE':
+  // {...state} copies ALL properties (items, editedId, deletingId) into a
+  // new object. The `items:` key below then OVERWRITES that copied items
+  // value with a new array — new expense first, existing items after. This is a genuine new
+  // array/object, not a mutation — required here since this is a plain
+  // useReducer reducer, not wrapped by Immer like the Redux Toolkit slice,
+  // where `state.data.unshift(...)` was allowed to mutate directly.
       return { ...state, items: [action.payload, ...state.items] }
 
     case 'CLEAR_EXPENSES':

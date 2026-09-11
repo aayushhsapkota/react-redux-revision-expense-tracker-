@@ -29,7 +29,8 @@ function App() {
   // transition, so React can deprioritize it if it's ever expensive.
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearchPending, startTransition] = useTransition();
+  const [isSearchPending, startTransition] = useTransition(); //isSearchPending is a boolean that indicates 
+  //whether the transition is still ongoing or not. It can be used to show a loading indicator or disable certain UI elements while the transition is in progress.
 
   function handleSearchChange(value) {
     setSearchInput(value); // urgent — keeps the input responsive

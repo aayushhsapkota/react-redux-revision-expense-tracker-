@@ -86,8 +86,7 @@ export function ExpenseProvider({ children }) {
     }, [])
   
 
-  // Consumers see the OPTIMISTIC items (so a pending add shows immediately),
-    // the two transient ids, and named action functions — never raw dispatch.
+ 
     const value = useMemo(
       () => ({
         expenses: optimisticItems,
