@@ -17,6 +17,8 @@ const initialState = {
   details: null, // populated by a getExpenseById thunk in Step 3 (no detail page in this app yet, but kept for convention parity)
   page: 1, // which page of results we're currently viewing
   pageCount: 1, // pagination — how many pages exist total (comes FROM the server response)
+  total: 0, // grand total — now computed server-side over the FULL filtered set, not just this page
+  categoryTotals: {}, // same reasoning
   filterBy: '', // same category filter we already had
   // Your template in the prompt used `sortBy: 1` — kept as a STRING here instead, since our
   // existing UI already sends values like 'date-desc' (see sortBy.split('-')
@@ -41,9 +43,11 @@ export const getAllExpenses = ({ page, searchBy, filterBy, sortBy }) => async (d
   dispatch(setExpenseStatus(Status.LOADING))
   try {
     const {
-      data: { data, pageCount },
+      data: { data, pageCount, total, categoryTotals },
     } = await api.GetAllExpenseAPI({ page, searchBy, filterBy, sortBy })
     dispatch(setExpensePageCount(pageCount))
+    dispatch(setExpenseTotal(total))
+    dispatch(setExpenseCategoryTotals(categoryTotals))
     dispatch(setAllExpenses(data))
     return dispatch(setExpenseStatus(Status.IDLE))
   } catch (error) {
@@ -66,46 +70,44 @@ export const getExpenseById = (id) => async (dispatch) => {
   }
 }
 
-export const createExpense = (newExpense) => async (dispatch) => {
+export const createExpense = (newExpense) => async (dispatch, getState) => {
   dispatch(setExpenseStatus(Status.LOADING))
   try {
-// const response = await api.CreateExpenseAPI(newExpense)
-// const data = response.data.data //this code is replaced by the destructuring below, 
-// which is more concise and readable.
-    const {
-      data: { data },
-    } = await api.CreateExpenseAPI(newExpense)
-    dispatch(addNewExpense(data))
-    return dispatch(setExpenseStatus(Status.IDLE))
+    await api.CreateExpenseAPI(newExpense)
+    const { page, filterBy, sortBy, searchBy } = getState().expenses
+    return dispatch(getAllExpenses({ page, filterBy, sortBy, searchBy }))
   } catch (error) {
     console.error(error.message)
-    return dispatch(setExpenseStatus(Status.FAILED))
+    dispatch(setExpenseStatus(Status.FAILED))
+    throw error
   }
 }
 
-export const updateExpense = (updatedExpense) => async (dispatch) => {
+export const updateExpense = (updatedExpense) => async (dispatch, getState) => {
   dispatch(setExpenseStatus(Status.LOADING))
   try {
-    const {
-      data: { data },
-    } = await api.UpdateExpenseAPI(updatedExpense)
-    dispatch(onConfirmEditExpense(data))
-    return dispatch(setExpenseStatus(Status.IDLE))
+    await api.UpdateExpenseAPI(updatedExpense)
+    dispatch(cancelEditExpense()) // clear editedID now that the save actually succeeded
+    const { page, filterBy, sortBy, searchBy } = getState().expenses
+    return dispatch(getAllExpenses({ page, filterBy, sortBy, searchBy }))
   } catch (error) {
     console.error(error.message)
-    return dispatch(setExpenseStatus(Status.FAILED))
+    dispatch(setExpenseStatus(Status.FAILED))
+    throw error
   }
 }
 
-export const deleteExpense = (id) => async (dispatch) => {
+export const deleteExpense = (id) => async (dispatch, getState) => {
   dispatch(setExpenseStatus(Status.LOADING))
   try {
     await api.DeleteExpenseAPI(id)
-    dispatch(onConfirmDeletedExpense(id))
-    return dispatch(setExpenseStatus(Status.IDLE))
+    dispatch(cancelDeleteExpense()) // clear deletedID now that the delete actually succeeded
+    const { page, filterBy, sortBy, searchBy } = getState().expenses
+    return dispatch(getAllExpenses({ page, filterBy, sortBy, searchBy }))
   } catch (error) {
     console.error(error.message)
-    return dispatch(setExpenseStatus(Status.FAILED))
+    dispatch(setExpenseStatus(Status.FAILED))
+    throw error
   }
 }
 
@@ -125,6 +127,12 @@ const expenseSlice = createSlice({
     },
     setExpensePageCount(state, action) {
       state.pageCount = action.payload
+    },
+     setExpenseTotal(state, action) {
+      state.total = action.payload
+    },
+    setExpenseCategoryTotals(state, action) {
+      state.categoryTotals = action.payload
     },
     setExpenseDetails(state, action) {
       state.details = action.payload
@@ -188,6 +196,8 @@ export const {
   setExpenseStatus,
   setAllExpenses,
   setExpensePageCount,
+  setExpenseTotal,
+  setExpenseCategoryTotals,
   setExpenseDetails,
   addNewExpense,
   onConfirmEditExpense,
@@ -211,6 +221,8 @@ export const getExpenseStatusSelector = (state) => state.expenses.status
 export const getExpenseDetailsSelector = (state) => state.expenses.details
 export const getExpensePageSelector = (state) => state.expenses.page
 export const getExpensePageCountSelector = (state) => state.expenses.pageCount
+export const getExpenseTotalSelector = (state) => state.expenses.total
+export const getExpenseCategoryTotalsSelector = (state) => state.expenses.categoryTotals
 export const getExpenseFilterBySelector = (state) => state.expenses.filterBy
 export const getExpenseSortBySelector = (state) => state.expenses.sortBy
 export const getExpenseSearchBySelector = (state) => state.expenses.searchBy

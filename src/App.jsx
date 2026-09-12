@@ -1,109 +1,82 @@
 import {
-  useRef,
   useEffect,
   useState,
-  useMemo,
   useTransition,
 } from "react";
+import { useDispatch, useSelector } from 'react-redux'
+
+import {
+  getAllExpenseSelector, getExpenseStatusSelector, getExpensePageSelector,
+  getExpensePageCountSelector, getExpenseFilterBySelector, getExpenseSortBySelector,
+  getExpenseTotalSelector, getExpenseCategoryTotalsSelector, getExpenseSearchBySelector,
+  setSearchBy, setPage, setFilterBy, setSortBy, getAllExpenses, createExpense, Status,
+} from './stateManagement/slice/expenseSlice'
+
 import ExpenseForm from "./components/ExpenseForm";
 import ExpenseList from "./components/ExpenseList";
 import ExpenseFilters from "./components/ExpenseFilters";
 import ThemeToggle from "./components/ThemeToggle";
 import Card from "./components/ui/Card";
 import Button from "./components/ui/Button";
-import { useExpenses } from "./context/ExpenseContext";
 
 function App() {
-  // Expense state (add/persist/optimistic) now lives in ExpenseContext —
-  // App just reads what it needs and calls the actions it exposes.
-  const { expenses, addExpense, clearExpenses } = useExpenses();
+    const dispatch = useDispatch()
 
-  // This is the "lifted" state — the single source of truth for the whole app.
-  // Swapped useState for our custom hook — expenses now persist across reloads.
-  const [filterBy, setFilterBy] = useState(""); // '' means "all categories"
-  const [sortBy, setSortBy] = useState("date-desc");
+      // useSelector: each of these is its OWN subscription. If only `status`
+      // changes, a component that only selected `total` doesn't re-render —
+      // this is the fine-grained subscription Context's single `value` object
+      // couldn't give us (Phase 6, Step 4).
+      const expenses = useSelector(getAllExpenseSelector) // just the CURRENT page now — server paginates
+      const status = useSelector(getExpenseStatusSelector)
+      const page = useSelector(getExpensePageSelector)
+      const pageCount = useSelector(getExpensePageCountSelector)
+      const filterBy = useSelector(getExpenseFilterBySelector)
+      const sortBy = useSelector(getExpenseSortBySelector)
+      const grandTotal = useSelector(getExpenseTotalSelector) // computed server-side now, not useMemo
+      const categoryTotals = useSelector(getExpenseCategoryTotalsSelector)
 
-  // searchInput: updates immediately, always — this is what the text box shows,
-  // so it must never lag behind typing.
-  // searchQuery: the value filtering actually reads. Updated INSIDE a
-  // transition, so React can deprioritize it if it's ever expensive.
+
+    // searchInput stays LOCAL (raw typed value — must never lag). The
+  // "committed" query now lives in REDUX (searchBy), dispatched inside a
+  // transition — so Redux itself is the "committed" value, no separate
+  // local searchQuery state needed like the Context version had.
   const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
   const [isSearchPending, startTransition] = useTransition(); //isSearchPending is a boolean that indicates 
   //whether the transition is still ongoing or not. It can be used to show a loading indicator or disable certain UI elements while the transition is in progress.
 
   function handleSearchChange(value) {
     setSearchInput(value); // urgent — keeps the input responsive
     startTransition(() => {
-      setSearchQuery(value); // non-urgent — the (potentially slow) filter trigger
+      dispatch(setSearchBy({ title: value, note: value })); // non-urgent — updates the committed search query in Redux
+      dispatch(setPage(1)); // new search — back to page 1
     });
   }
 
-
-  // useMemo #1 — recompute only when `optimisticExpenses` changes. Using the
-  // optimistic array (not raw `expenses`) means a pending add is reflected
-  // in the total immediately, not just once the fake save resolves.
-  const grandTotal = useMemo(
-    () => expenses.reduce((sum, e) => sum + e.amount, 0),
-    [expenses],
-  );
-
-  // useMemo #2 — per-category breakdown, same reasoning.
-  const categoryTotals = useMemo(() => {
-    return expenses.reduce((totals, e) => {
-      totals[e.category] = (totals[e.category] || 0) + e.amount;
-      return totals;
-    }, {});
-  }, [expenses]);
-
-  // useMemo #3 — the filtered + sorted list the user actually sees.
-  // Note: filter/sort here build a NEW array, but reuse the SAME expense
-  // object references — which is exactly what lets ExpenseItem's memo() pay off.
-  const visibleExpenses = useMemo(() => {
-    let filtered = filterBy
-      ? expenses.filter((e) => e.category === filterBy)
-      : expenses;
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (e) =>
-          e.title.toLowerCase().includes(query) ||
-          (e.note && e.note.toLowerCase().includes(query)),
-      );
+   function handleFilterChange(value) {
+      dispatch(setFilterBy(value))
+      dispatch(setPage(1)) // new filter — back to page 1
     }
 
-    const [field, direction] = sortBy.split("-");
-
-    // `a` and `b` are the two expenses being compared.
-    // `a - b` gives a negative number when `a` is smaller, so `a` comes first (ascending).
-    // `b - a` does the opposite, putting the larger value first (descending).
-    return [...filtered].sort((a, b) => {
-      if (field === "date") {
-        return direction === "asc"
-          ? new Date(a.date) - new Date(b.date)
-          : new Date(b.date) - new Date(a.date);
-      }
-      return direction === "asc" ? a.amount - b.amount : b.amount - a.amount;
-    });
-  }, [expenses, filterBy, sortBy, searchQuery]);
-
-  // useRef use #2: remember the PREVIOUS grand total across renders,
-  // without causing an extra re-render just to store it.
-  //
-  // Initially, grandTotal is calculated, and when calculating previousTotal initially,
-  // it gets the same initial value from the ref.
-  // The app renders, and since these values are equal in HTML, nothing visibly changes.
-  // When a new expense is added and causes a re-render, a new grandTotal is calculated,
-  // while previousTotal still holds the value from the previous render.
-  // After the new render is committed to the screen, useEffect runs and updates the ref
-  // with the current grandTotal, preparing it to be used as previousTotal in the next render.
-  // So essentially, we're storing the current total **for comparison during the next render**.
-  const prevTotalRef = useRef(grandTotal);
+  function handleSortChange(value) {
+      dispatch(setSortBy(value))
+    }
+ 
+  // "Components use useDispatch/useSelector, dispatch thunks inside
+  // useEffect" — this IS that pattern. Runs on mount (fetches the first
+  // page), and again any time page/filterBy/sortBy change, since those are
+  // now all read from Redux via useSelector above.
+    const searchBy = useSelector(getExpenseSearchBySelector)
   useEffect(() => {
-    prevTotalRef.current = grandTotal; // runs AFTER this render is on screen
-  });
-  const previousTotal = prevTotalRef.current;
+    dispatch(getAllExpenses({ page, filterBy, sortBy, searchBy })).catch(() => {
+      // status already reflects FAILED via the thunk itself; nothing more to do here
+    })
+  }, [page, filterBy, sortBy, searchBy, dispatch])
+
+  async function handleAddExpense(newExpense) {
+      // No optimistic UI here (Step 3's deliberate choice, per your
+      // conventions) — the form's isPending state covers the loading feel.
+      await dispatch(createExpense(newExpense))
+    }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900 py-10 px-4 transition-colors">
@@ -115,64 +88,68 @@ function App() {
           <ThemeToggle />
         </div>
 
-        <ExpenseForm onAddExpense={addExpense} />
+        <ExpenseForm onAddExpense={handleAddExpense} />
 
         <ExpenseFilters
           filterBy={filterBy}
-          onFilterChange={setFilterBy}
+          onFilterChange={handleFilterChange}
           sortBy={sortBy}
-          onSortChange={setSortBy}
+          onSortChange={handleSortChange}
           searchInput={searchInput}
           onSearchChange={handleSearchChange}
           isSearchPending={isSearchPending}
         />
 
         <Card className="flex justify-between items-center">
-          <div>
-            <span className="text-slate-600 dark:text-slate-300">
-              Grand Total
-            </span>
-            {previousTotal !== grandTotal && ( //&& is being used for conditional rendering in React.
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                was ${previousTotal.toFixed(2)}
-              </p>
-            )}
-          </div>
-          <span className="text-xl font-bold text-slate-800 dark:text-slate-100">
-            ${grandTotal.toFixed(2)}
-          </span>
-        </Card>
+                 <span className="text-slate-600 dark:text-slate-300">
+                   Grand Total {status === Status.LOADING && <span className="text-xs">(loading…)</span>}
+                 </span>
+                 <span className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                   ${grandTotal.toFixed(2)}
+                 </span>
+               </Card>
 
-        {expenses.length > 0 && (
-          <Card>
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-slate-600 dark:text-slate-300 text-sm">
-                By category
-              </p>
-              <Button
-                variant="ghost"
-                className="text-xs px-2 py-1"
-                onClick={clearExpenses}
-              >
-                Clear all
-              </Button>
-            </div>
-            <ul className="space-y-1 text-sm">
-              {Object.entries(categoryTotals).map(([category, total]) => (
-                <li key={category} className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    {category}
-                  </span>
-                  <span className="font-medium text-slate-700 dark:text-slate-200">
-                    ${total.toFixed(2)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
+        {Object.keys(categoryTotals).length > 0 && (
+                 <Card>
+                   <p className="text-slate-600 dark:text-slate-300 mb-2 text-sm">By category</p>
+                   <ul className="space-y-1 text-sm">
+                     {Object.entries(categoryTotals).map(([category, total]) => (
+                       <li key={category} className="flex justify-between">
+                         <span className="text-slate-500 dark:text-slate-400">{category}</span>
+                         <span className="font-medium text-slate-700 dark:text-slate-200">
+                           ${total.toFixed(2)}
+                         </span>
+                       </li>
+                     ))}
+                   </ul>
+                 </Card>
+               )}
 
-        <ExpenseList expenses={visibleExpenses} />
+         {/* No visibleExpenses useMemo anymore — the server already filtered,
+                    sorted, and paginated this exact list. `expenses` IS the view. */}
+        <ExpenseList expenses={expenses} />
+
+        {pageCount > 1 && (
+                  <div className="flex justify-between items-center">
+                    <Button
+                      variant="ghost"
+                      disabled={page <= 1}
+                      onClick={() => dispatch(setPage(page - 1))}
+                    >
+                      ← Prev
+                    </Button>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      Page {page} of {pageCount}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      disabled={page >= pageCount}
+                      onClick={() => dispatch(setPage(page + 1))}
+                    >
+                      Next →
+                    </Button>
+                  </div>
+                )}
       </div>
     </div>
   );

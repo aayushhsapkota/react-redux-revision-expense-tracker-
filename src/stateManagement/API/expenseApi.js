@@ -43,6 +43,17 @@ mockAdapter.onGet('/expenses').reply((config) => {
     })
   }
 
+    // Totals reflect the WHOLE database — same as every phase since Phase 3 —
+  // not just what matches the active filter/search. Only the LIST (below)
+  // is supposed to narrow down; "Grand Total" and "By category" have always
+  // meant the whole picture.
+  const total = db.reduce((sum, e) => sum + e.amount, 0)
+  const categoryTotals = db.reduce((totals, e) => {
+    totals[e.category] = (totals[e.category] || 0) + e.amount
+    return totals
+  }, {})
+
+
   const [field, direction] = sortBy.split('-')
   // `a` and `b` are the two expenses being compared.
     // `a - b` gives a negative number when `a` is smaller, so `a` comes first (ascending).
@@ -67,7 +78,7 @@ mockAdapter.onGet('/expenses').reply((config) => {
   const start = (page - 1) * PAGE_SIZE 
   const pageData = sorted.slice(start, start + PAGE_SIZE)
 
-  return [200, { data: pageData, pageCount }]
+  return [200, { data: pageData, pageCount, total, categoryTotals }]
 })
 
 mockAdapter.onGet(/\/expenses\/[\w-]+$/).reply((config) => {
@@ -103,7 +114,8 @@ mockAdapter.onDelete(/\/expenses\/[\w-]+$/).reply((config) => {
 
 // --- The actual per-domain API functions — these are what thunks call --
 
-export const GetAllExpenseAPI = ({ page = 1, filterBy = '', sortBy = 'date-desc', searchBy = {} } = {}) => //default values for the parameters, so if no arguments are passed, it will use these defaults.
+export const GetAllExpenseAPI = ({ page = 1, filterBy = '', sortBy = 'date-desc', searchBy = {} } = {}) => 
+  //default values for the parameters, so if no arguments are passed, it will use these defaults.
   axiosInstance.get('/expenses', {
     params: {
       page,
