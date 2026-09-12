@@ -12,6 +12,7 @@ import {
   setSearchBy, setPage, setFilterBy, setSortBy, getAllExpenses, createExpense, Status,
 } from './stateManagement/slice/expenseSlice'
 
+import { logout, getAuthUserSelector } from './stateManagement/slice/authSlice'
 import ExpenseForm from "./components/ExpenseForm";
 import ExpenseList from "./components/ExpenseList";
 import ExpenseFilters from "./components/ExpenseFilters";
@@ -70,7 +71,8 @@ function App() {
     dispatch(getAllExpenses({ page, filterBy, sortBy, searchBy })).catch(() => {
       // status already reflects FAILED via the thunk itself; nothing more to do here
     })
-  }, [page, filterBy, sortBy, searchBy, dispatch])
+  }, [page, filterBy, sortBy, searchBy, dispatch]) //dependency array includes dispatch to ensure that the effect is re-run if the dispatch function changes, 
+  //which is unlikely but can happen in certain scenarios (e.g., hot module replacement during development).
 
   async function handleAddExpense(newExpense) {
       // No optimistic UI here (Step 3's deliberate choice, per your
@@ -79,80 +81,87 @@ function App() {
     }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 py-10 px-4 transition-colors">
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
-            Expense Tracker
-          </h1>
-          <ThemeToggle />
-        </div>
-
-        <ExpenseForm onAddExpense={handleAddExpense} />
-
-        <ExpenseFilters
-          filterBy={filterBy}
-          onFilterChange={handleFilterChange}
-          sortBy={sortBy}
-          onSortChange={handleSortChange}
-          searchInput={searchInput}
-          onSearchChange={handleSearchChange}
-          isSearchPending={isSearchPending}
-        />
-
-        <Card className="flex justify-between items-center">
-                 <span className="text-slate-600 dark:text-slate-300">
-                   Grand Total {status === Status.LOADING && <span className="text-xs">(loading…)</span>}
-                 </span>
-                 <span className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                   ${grandTotal.toFixed(2)}
-                 </span>
-               </Card>
-
-        {Object.keys(categoryTotals).length > 0 && (
-                 <Card>
-                   <p className="text-slate-600 dark:text-slate-300 mb-2 text-sm">By category</p>
-                   <ul className="space-y-1 text-sm">
-                     {Object.entries(categoryTotals).map(([category, total]) => (
-                       <li key={category} className="flex justify-between">
-                         <span className="text-slate-500 dark:text-slate-400">{category}</span>
-                         <span className="font-medium text-slate-700 dark:text-slate-200">
-                           ${total.toFixed(2)}
-                         </span>
-                       </li>
-                     ))}
-                   </ul>
-                 </Card>
-               )}
-
-         {/* No visibleExpenses useMemo anymore — the server already filtered,
-                    sorted, and paginated this exact list. `expenses` IS the view. */}
-        <ExpenseList expenses={expenses} />
-
-        {pageCount > 1 && (
-                  <div className="flex justify-between items-center">
-                    <Button
-                      variant="ghost"
-                      disabled={page <= 1}
-                      onClick={() => dispatch(setPage(page - 1))}
-                    >
-                      ← Prev
-                    </Button>
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                      Page {page} of {pageCount}
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900 py-10 px-4 transition-colors">
+        <div className="max-w-xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
+              Expense Tracker
+            </h1>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500 dark:text-slate-400">{user?.name}</span>
+              <Button variant="ghost" onClick={() => dispatch(logout())}>
+                Log out
+              </Button>
+              <ThemeToggle />
+            </div>
+          </div>
+  
+          <ExpenseForm onAddExpense={handleAddExpense} />
+  
+          <ExpenseFilters
+            filterBy={filterBy}
+            onFilterChange={handleFilterChange}
+            sortBy={sortBy}
+            onSortChange={handleSortChange}
+            searchInput={searchInput}
+            onSearchChange={handleSearchChange}
+            isSearchPending={isSearchPending}
+          />
+  
+          <Card className="flex justify-between items-center">
+            <span className="text-slate-600 dark:text-slate-300">
+              Grand Total {status === Status.LOADING && <span className="text-xs">(loading…)</span>}
+            </span>
+            <span className="text-xl font-bold text-slate-800 dark:text-slate-100">
+              ${grandTotal.toFixed(2)}
+            </span>
+          </Card>
+  
+          {Object.keys(categoryTotals).length > 0 && (
+            <Card>
+              <p className="text-slate-600 dark:text-slate-300 mb-2 text-sm">By category</p>
+              <ul className="space-y-1 text-sm">
+                {Object.entries(categoryTotals).map(([category, total]) => (
+                  <li key={category} className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">{category}</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">
+                      ${total.toFixed(2)}
                     </span>
-                    <Button
-                      variant="ghost"
-                      disabled={page >= pageCount}
-                      onClick={() => dispatch(setPage(page + 1))}
-                    >
-                      Next →
-                    </Button>
-                  </div>
-                )}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+  
+          {/* No visibleExpenses useMemo anymore — the server already filtered,
+              sorted, and paginated this exact list. `expenses` IS the view. */}
+          <ExpenseList expenses={expenses} />
+  
+          {pageCount > 1 && (
+            <div className="flex justify-between items-center">
+              <Button
+                variant="ghost"
+                disabled={page <= 1}
+                onClick={() => dispatch(setPage(page - 1))}
+              >
+                ← Prev
+              </Button>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Page {page} of {pageCount}
+              </span>
+              <Button
+                variant="ghost"
+                disabled={page >= pageCount}
+                onClick={() => dispatch(setPage(page + 1))}
+              >
+                Next →
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
-
-export default App;
+    )
+  }
+  
+  export default App
+  

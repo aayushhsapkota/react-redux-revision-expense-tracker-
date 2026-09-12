@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import expenseReducer from '../slice/expenseSlice'
+import authReducer from '../slice/authSlice'
 //This is custom middleware. Its job is presumably to persist Redux state somewhere, such as localStorage.
 import { persistMiddleware } from './persistMiddleware'
 
@@ -7,6 +8,7 @@ export const store = configureStore({
   reducer: {
     //the Redux store has a piece of state called expenses, and expenseReducer is responsible for managing it.
     expenses: expenseReducer,
+    auth: authReducer,  //authReducer is responsible for managing the auth slice of state. It handles actions related to authentication, such as login and logout.
     // auth: authReducer,  <- added in Step 5
   },
   

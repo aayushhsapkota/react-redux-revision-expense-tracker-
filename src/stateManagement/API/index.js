@@ -6,12 +6,18 @@ export const axiosInstance = axios.create({
   timeout: 10000,
 })
 
-// Request interceptor: runs before every request leaves axios. Right now
-// just logs — this is exactly where Step 5's auth slice will attach an
-// Authorization header once we have a token to send.
+// Request interceptor: runs before every request leaves axios. Reads the
+// token straight from localStorage
 axiosInstance.interceptors.request.use((config) => {
   console.log('[api] →', config.method?.toUpperCase(), config.url)
-  //later we can do config.headers.Authorization = `Bearer ${token}` before returning config, once we have a token to send.
+  try {
+    const token = window.localStorage.getItem('authToken')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+  } catch (error) {
+    console.error('Failed to read auth token:', error)
+  }
   return config
 })
 
