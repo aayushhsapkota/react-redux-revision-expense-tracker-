@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import expenseReducer from '../slice/expenseSlice'
 import authReducer from '../slice/authSlice'
+import { expenseApiSlice } from '../slice/expenseApiSlice'
 //This is custom middleware. Its job is presumably to persist Redux state somewhere, such as localStorage.
 import { persistMiddleware } from './persistMiddleware'
 
@@ -10,6 +11,8 @@ export const store = configureStore({
     expenses: expenseReducer,
     auth: authReducer,  //authReducer is responsible for managing the auth slice of state. It handles actions related to authentication, such as login and logout.
     // auth: authReducer,  <- added in Step 5
+    [expenseApiSlice.reducerPath]: expenseApiSlice.reducer, // Uses the reducerPath name ('expenseApi') as the store key
+
   },
   
   //serializableCheck scans every action and the entire state tree after each dispatch, 
@@ -19,7 +22,12 @@ export const store = configureStore({
 
   //here middleware determines how actions are processed before they reach the reducers. 
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({ serializableCheck: false }).concat(persistMiddleware),
+    getDefaultMiddleware({ serializableCheck: false })
+      .concat(persistMiddleware)
+      // RTK Query's middleware is what actually powers caching, refetching,
+      // and cache invalidation (Step 2) — required, not optional, for any
+      // of that to work.
+      .concat(expenseApiSlice.middleware),
   devTools: process.env.NODE_ENV !== 'production',
 })
 

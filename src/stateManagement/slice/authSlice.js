@@ -19,7 +19,7 @@ function loadStoredUser() {
 const initialState = {
   user: loadStoredUser(), // restores the session across reloads
   status: Status.IDLE,
-  error:  ,
+  error: null,
 }
 
 // createAsyncThunk auto-generates 'auth/login/pending', '.../fulfilled', and

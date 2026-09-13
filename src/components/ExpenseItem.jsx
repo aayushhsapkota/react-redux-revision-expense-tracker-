@@ -7,9 +7,11 @@ import {
   cancelEditExpense,
   setDeletedID,
   cancelDeleteExpense,
-  updateExpense,
-  deleteExpense,
+  // updateExpense,
+  // deleteExpense,
 } from '../stateManagement/slice/expenseSlice'
+import { useUpdateExpenseMutation, useDeleteExpenseMutation } from '../stateManagement/slice/expenseApiSlice'
+
 import { CATEGORIES } from '../constants'
 import Button from './ui/Button'
 import Input from './ui/Input'
@@ -21,6 +23,9 @@ function ExpenseItem({ expense }) {
    // Every ExpenseItem still subscribes to these two values;
    const editedID = useSelector(getExpenseEditedIDSelector)
    const deletedID = useSelector(getExpenseDeletedIDSelector)
+// The actual mutations: now RTK Query hooks instead of dispatched thunks.
+  const [updateExpense] = useUpdateExpenseMutation()
+  const [deleteExpense] = useDeleteExpenseMutation()
 
   const { id, title, amount, category, date, note } = expense
   const isEditing = editedID === id //check if the current expense is being edited
@@ -40,30 +45,30 @@ function ExpenseItem({ expense }) {
     setEditForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  async function handleSaveEdit(e) {
-     e.preventDefault()
-     try {
-       await dispatch(
-         updateExpense({ ...expense, ...editForm, amount: parseFloat(editForm.amount) })
-       )
-       setEditForm(null)
-     } catch (error) {
-       console.error('Failed to save edit:', error.message)
-     }
-   }
+    async function handleSaveEdit(e) {
+      e.preventDefault()
+      try {
+        await updateExpense({ ...expense, ...editForm, amount: parseFloat(editForm.amount) }).unwrap()
+        dispatch(cancelEditExpense()) // RTK Query doesn't know about editedID — still our job
+        setEditForm(null)
+      } catch (error) {
+        console.error('Failed to save edit:', error.message)
+      }
+    }
 
  function handleCancelEdit() {
      dispatch(cancelEditExpense())
      setEditForm(null)
    }
 
-    async function handleConfirmDelete() {
-       try {
-         await dispatch(deleteExpense(id))
-       } catch (error) {
-         console.error('Failed to delete:', error.message)
-       }
-     }
+  async function handleConfirmDelete() {
+      try {
+        await deleteExpense(id).unwrap()
+        dispatch(cancelDeleteExpense())
+      } catch (error) {
+        console.error('Failed to delete:', error.message)
+      }
+    }
 
   // If the current expense is being edited, render the edit form
   //editForm is also checked to ensure that the form has been initialized with the current expense values.

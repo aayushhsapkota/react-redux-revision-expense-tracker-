@@ -1,17 +1,22 @@
 import {
-  useEffect,
+  // useEffect, don't need becasue of RTK
   useState,
   useTransition,
 } from "react";
 import { useDispatch, useSelector } from 'react-redux'
 
 import {
-  getAllExpenseSelector, getExpenseStatusSelector, getExpensePageSelector,
-  getExpensePageCountSelector, getExpenseFilterBySelector, getExpenseSortBySelector,
-  getExpenseTotalSelector, getExpenseCategoryTotalsSelector, getExpenseSearchBySelector,
-  setSearchBy, setPage, setFilterBy, setSortBy, getAllExpenses, createExpense, Status,
+  setFilterBy,
+  setSortBy,
+  setSearchBy,
+  setPage,
+  getExpensePageSelector,
+  getExpenseFilterBySelector,
+  getExpenseSortBySelector,
+  getExpenseSearchBySelector,
 } from './stateManagement/slice/expenseSlice'
 
+import { useGetExpensesQuery, useAddExpenseMutation } from './stateManagement/slice/expenseApiSlice'
 import { logout, getAuthUserSelector } from './stateManagement/slice/authSlice'
 import ExpenseForm from "./components/ExpenseForm";
 import ExpenseList from "./components/ExpenseList";
@@ -22,20 +27,28 @@ import Button from "./components/ui/Button";
 
 function App() {
     const dispatch = useDispatch()
-
+      const user = useSelector(getAuthUserSelector)
       // useSelector: each of these is its OWN subscription. If only `status`
       // changes, a component that only selected `total` doesn't re-render —
       // this is the fine-grained subscription Context's single `value` object
       // couldn't give us (Phase 6, Step 4).
-      const expenses = useSelector(getAllExpenseSelector) // just the CURRENT page now — server paginates
-      const status = useSelector(getExpenseStatusSelector)
       const page = useSelector(getExpensePageSelector)
-      const pageCount = useSelector(getExpensePageCountSelector)
       const filterBy = useSelector(getExpenseFilterBySelector)
       const sortBy = useSelector(getExpenseSortBySelector)
-      const grandTotal = useSelector(getExpenseTotalSelector) // computed server-side now, not useMemo
-      const categoryTotals = useSelector(getExpenseCategoryTotalsSelector)
+      const searchBy = useSelector(getExpenseSearchBySelector)
 
+
+      // (RTK)Replaces: useSelector(data/status/pageCount/total/categoryTotals) AND
+        // the useEffect that manually dispatched getAllExpenses. This hook does
+        // both jobs — fetches on mount, refetches automatically if the args
+        // change OR if a mutation invalidates its tag.
+        const { data, isFetching } = useGetExpensesQuery({ page, filterBy, sortBy, searchBy })
+        const expenses = data?.data ?? []
+        const pageCount = data?.pageCount ?? 1
+        const grandTotal = data?.total ?? 0
+        const categoryTotals = data?.categoryTotals ?? {}
+
+  const [addExpense] = useAddExpenseMutation()
 
     // searchInput stays LOCAL (raw typed value — must never lag). The
   // "committed" query now lives in REDUX (searchBy), dispatched inside a
@@ -62,23 +75,13 @@ function App() {
       dispatch(setSortBy(value))
     }
  
-  // "Components use useDispatch/useSelector, dispatch thunks inside
-  // useEffect" — this IS that pattern. Runs on mount (fetches the first
-  // page), and again any time page/filterBy/sortBy change, since those are
-  // now all read from Redux via useSelector above.
-    const searchBy = useSelector(getExpenseSearchBySelector)
-  useEffect(() => {
-    dispatch(getAllExpenses({ page, filterBy, sortBy, searchBy })).catch(() => {
-      // status already reflects FAILED via the thunk itself; nothing more to do here
-    })
-  }, [page, filterBy, sortBy, searchBy, dispatch]) //dependency array includes dispatch to ensure that the effect is re-run if the dispatch function changes, 
-  //which is unlikely but can happen in certain scenarios (e.g., hot module replacement during development).
 
-  async function handleAddExpense(newExpense) {
-      // No optimistic UI here (Step 3's deliberate choice, per your
-      // conventions) — the form's isPending state covers the loading feel.
-      await dispatch(createExpense(newExpense))
-    }
+ async function handleAddExpense(newExpense) {
+    // .unwrap() needed for the same reason as createAsyncThunk: mutation
+    // triggers always resolve, even on failure — .unwrap() is what makes
+    // this actually reject so ExpenseForm's try/catch still works.
+    await addExpense(newExpense).unwrap()
+  }
 
   return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-900 py-10 px-4 transition-colors">
@@ -110,7 +113,7 @@ function App() {
   
           <Card className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-300">
-              Grand Total {status === Status.LOADING && <span className="text-xs">(loading…)</span>}
+              Grand Total {isFetching && <span className="text-xs">(loading…)</span>}
             </span>
             <span className="text-xl font-bold text-slate-800 dark:text-slate-100">
               ${grandTotal.toFixed(2)}
@@ -133,8 +136,6 @@ function App() {
             </Card>
           )}
   
-          {/* No visibleExpenses useMemo anymore — the server already filtered,
-              sorted, and paginated this exact list. `expenses` IS the view. */}
           <ExpenseList expenses={expenses} />
   
           {pageCount > 1 && (
